@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { parseCanonicalCsv } from "@/lib/csv/parse";
-import { CANONICAL_CSV_COLUMNS } from "@/lib/csv/canonical";
+import { CANONICAL_CSV_REQUIRED_COLUMNS } from "@/lib/csv/canonical";
 
-const HEADER = CANONICAL_CSV_COLUMNS.join(",");
+// 旧形式(locationを含まない13列)。後方互換性の検証に使う。
+const HEADER = CANONICAL_CSV_REQUIRED_COLUMNS.join(",");
+// 新形式(location列を含む14列)。
+const HEADER_WITH_LOCATION = [...CANONICAL_CSV_REQUIRED_COLUMNS, "location"].join(",");
 
 describe("parseCanonicalCsv", () => {
   it("parses the §5.2 sample rows (swap/reward/buy) correctly", () => {
@@ -69,5 +72,31 @@ describe("parseCanonicalCsv", () => {
     const result = parseCanonicalCsv(csv);
     expect(result.rows[0].parseError).toBeUndefined();
     expect(result.rows[0].data?.baseQty).toBe("0.000000000001");
+  });
+
+  it("旧形式(13列・location無し)を後方互換で読み込める", () => {
+    const csv = [HEADER, "2026-08-01T12:00:00+09:00,reward,BASIS,12.34,,,,,,,BASIS,,Claim"].join("\n");
+    const result = parseCanonicalCsv(csv);
+    expect(result.headerError).toBeUndefined();
+    expect(result.rows[0].parseError).toBeUndefined();
+    expect(result.rows[0].data?.location).toBeUndefined();
+  });
+
+  it("新形式(14列目のlocation)を読み込み、値を保持する", () => {
+    const csv = [
+      HEADER_WITH_LOCATION,
+      "2026-06-01T10:00:00+09:00,buy,SOL,10,JPY,218500,,,,,Bitpoint,,,BASISでステーキング中",
+    ].join("\n");
+    const result = parseCanonicalCsv(csv);
+    expect(result.headerError).toBeUndefined();
+    expect(result.rows[0].parseError).toBeUndefined();
+    expect(result.rows[0].data?.location).toBe("BASISでステーキング中");
+  });
+
+  it("location列があっても空欄なら未指定として扱う", () => {
+    const csv = [HEADER_WITH_LOCATION, "2026-08-01T12:00:00+09:00,reward,BASIS,12.34,,,,,,,BASIS,,,"].join("\n");
+    const result = parseCanonicalCsv(csv);
+    expect(result.rows[0].parseError).toBeUndefined();
+    expect(result.rows[0].data?.location).toBeUndefined();
   });
 });

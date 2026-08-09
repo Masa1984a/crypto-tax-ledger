@@ -28,6 +28,7 @@ interface FormValues {
   venue: string;
   txHash: string;
   memo: string;
+  location: string;
 }
 
 export interface TransactionFormProps {
@@ -83,6 +84,7 @@ export function TransactionForm({ assets, mode, transactionId, initialData }: Tr
       venue: "",
       txHash: "",
       memo: "",
+      location: "",
       ...initialData,
     },
   });
@@ -181,6 +183,7 @@ export function TransactionForm({ assets, mode, transactionId, initialData }: Tr
         venue: values.venue || undefined,
         txHash: values.txHash || undefined,
         memo: values.memo || undefined,
+        location: values.location || undefined,
       };
 
       const result =
@@ -358,7 +361,7 @@ export function TransactionForm({ assets, mode, transactionId, initialData }: Tr
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <div>
           <label className="block text-sm font-medium">venue</label>
           <input {...register("venue")} className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
@@ -370,6 +373,16 @@ export function TransactionForm({ assets, mode, transactionId, initialData }: Tr
         <div>
           <label className="block text-sm font-medium">memo</label>
           <input {...register("memo")} className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium" title="現在の保管場所(ステーキング先・ウォレット等)。資産の移動に応じて自由に編集してください。">
+            保管場所
+          </label>
+          <input
+            {...register("location")}
+            placeholder="例: BASISでステーキング中"
+            className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+          />
         </div>
       </div>
 

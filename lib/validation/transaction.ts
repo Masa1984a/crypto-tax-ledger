@@ -68,6 +68,7 @@ const transactionBaseObjectSchema = z.object({
   venue: optionalText,
   txHash: optionalText,
   memo: optionalText,
+  location: optionalText,
 });
 
 function applyCommonRules<T extends z.infer<typeof transactionBaseObjectSchema>>(data: T, ctx: z.RefinementCtx) {

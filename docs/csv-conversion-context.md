@@ -13,17 +13,18 @@
 
 ---
 
-## 1. 出力フォーマット(13列・固定順・ヘッダ必須)
+## 1. 出力フォーマット(必須13列+任意1列・固定順・ヘッダ必須)
 
 先頭行は必ずこのヘッダ(snake_case、この順序):
 
 ```
-executed_at,tx_type,base_symbol,base_qty,quote_symbol,quote_qty,price_usd,usdjpy,fee_symbol,fee_qty,venue,tx_hash,memo
+executed_at,tx_type,base_symbol,base_qty,quote_symbol,quote_qty,price_usd,usdjpy,fee_symbol,fee_qty,venue,tx_hash,memo,location
 ```
 
 - 文字コードは UTF-8
 - 値にカンマ・改行・ダブルクォートを含む場合は RFC 4180 に従い `"..."` で囲む(memoなど)
 - 空欄は空文字(連続カンマ)で表現する
+- 14列目 `location`(保管場所)は**任意**。無くても(13列のままでも)読み込める。§5-b参照
 
 ---
 
@@ -126,6 +127,13 @@ executed_at,tx_type,base_symbol,base_qty,quote_symbol,quote_qty,price_usd,usdjpy
 ### memo(任意)
 - 補足。推定・要確認事項もここに書く。
 
+### location(任意・14列目)
+- **資産の現在の保管場所**(ステーキング先・ウォレット・バリデータ等)。`venue`(取引の実行場所・不変)とは別概念で、資産が後から移動しても構わず現在の状態を書く可変タグ。
+- 税計算には一切影響しない。**row_hash(重複判定)にも含まれない**ので、後から値を変えても重複判定は壊れない。
+- 例: `BASISでステーキング中`、`Solanaバリデータで運用中`、`Metamask保管`
+- 取得元データに保管場所の情報が無い場合は空欄でよい(後でアプリのUIから一括設定できる)。
+- 同じ資産・同じ理由で入手した行はまとめて同じ文言にする(表記ゆれがあるとダッシュボードの内訳で別グループに分かれてしまう)。
+
 ---
 
 ## 6. 重複防止の仕組み(知っておくと有用)
@@ -155,16 +163,18 @@ executed_at,tx_type,base_symbol,base_qty,quote_symbol,quote_qty,price_usd,usdjpy
 ## 8. tx_type別の完全な出力例
 
 ```csv
-executed_at,tx_type,base_symbol,base_qty,quote_symbol,quote_qty,price_usd,usdjpy,fee_symbol,fee_qty,venue,tx_hash,memo
-2026-03-10T21:00:00+09:00,buy,SOL,10,USDC,1450,,,USDC,1.2,KAST,,USDCでSOL購入
-2026-04-02T15:30:00+09:00,sell,USDC,1600,SOL,10,,,USDC,1.6,KAST,,SOLをUSDCで売却
-2026-05-28T09:30:00+09:00,swap,PAXG,0.5,BTC,0.015,,,BTC,0.0001,CowSwap,0xabc123,BTC→PAXG入替
-2026-06-01T10:00:00+09:00,buy,BTC,0.1,JPY,1400000,,,,,bitFlyer,,円建て購入(quote_qtyがそのまま円換算額)
-2026-08-01T12:00:00+09:00,reward,BASIS,12.34,,,,,,,BASIS,,DRR日次報酬(日付のみ→正午JST付与)。※BASISは未登録銘柄
-2026-07-15T18:05:00+09:00,fee,ETH,0.002,,,,,,,,0xdef456,単独ガス代
-2026-02-20T08:00:00+09:00,transfer_in,BTC,0.05,,,,,,,Ledger,,取引所→自己ウォレット移動
-2026-02-21T09:00:00+09:00,transfer_out,ETH,1.5,,,,,ETH,0.001,Metamask,,送金(送金手数料あり)
+executed_at,tx_type,base_symbol,base_qty,quote_symbol,quote_qty,price_usd,usdjpy,fee_symbol,fee_qty,venue,tx_hash,memo,location
+2026-03-10T21:00:00+09:00,buy,SOL,10,USDC,1450,,,USDC,1.2,KAST,,USDCでSOL購入,
+2026-04-02T15:30:00+09:00,sell,USDC,1600,SOL,10,,,USDC,1.6,KAST,,SOLをUSDCで売却,
+2026-05-28T09:30:00+09:00,swap,PAXG,0.5,BTC,0.015,,,BTC,0.0001,CowSwap,0xabc123,BTC→PAXG入替,
+2026-06-01T10:00:00+09:00,buy,BTC,0.1,JPY,1400000,,,,,bitFlyer,,円建て購入(quote_qtyがそのまま円換算額),BASISでステーキング中
+2026-08-01T12:00:00+09:00,reward,BASIS,12.34,,,,,,,BASIS,,DRR日次報酬(日付のみ→正午JST付与)。※BASISは未登録銘柄,
+2026-07-15T18:05:00+09:00,fee,ETH,0.002,,,,,,,,0xdef456,単独ガス代,
+2026-02-20T08:00:00+09:00,transfer_in,BTC,0.05,,,,,,,Ledger,,取引所→自己ウォレット移動,
+2026-02-21T09:00:00+09:00,transfer_out,ETH,1.5,,,,,ETH,0.001,Metamask,,送金(送金手数料あり),
 ```
+
+(location列は任意なので、不要なら14列目自体を省略して13列のままでも構いません。)
 
 ---
 

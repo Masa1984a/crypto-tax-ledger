@@ -45,3 +45,42 @@ export function computeHoldings(txs: HoldingsTransaction[]): Map<string, Decimal
 
   return holdings;
 }
+
+export interface LocationTaggedTransaction {
+  txType: TxType;
+  baseSymbol: string;
+  baseQty: string;
+  location?: string | null;
+}
+
+export interface LocationBreakdownRow {
+  symbol: string;
+  location: string;
+  qty: Decimal;
+}
+
+/**
+ * 保管場所タグの内訳(取得ベース・参考値)。buy/sell/swap/rewardで取得したbase_qtyを
+ * (symbol, location) ごとに合計する。その後の売却・移動までは追跡しない(§5.5の厳密な
+ * 保有数量集計とは別の、ユーザーが付けた保管場所メモの単純集計)。
+ */
+export function computeLocationBreakdown(txs: LocationTaggedTransaction[]): LocationBreakdownRow[] {
+  const nested = new Map<string, Map<string, Decimal>>();
+
+  for (const tx of txs) {
+    if (!BASE_INCREASE_TYPES.has(tx.txType)) continue;
+    if (!tx.location) continue;
+    const bySymbol = nested.get(tx.baseSymbol) ?? new Map<string, Decimal>();
+    bySymbol.set(tx.location, (bySymbol.get(tx.location) ?? new Decimal(0)).plus(tx.baseQty));
+    nested.set(tx.baseSymbol, bySymbol);
+  }
+
+  const result: LocationBreakdownRow[] = [];
+  for (const [symbol, byLocation] of nested) {
+    for (const [location, qty] of byLocation) {
+      result.push({ symbol, location, qty });
+    }
+  }
+  result.sort((a, b) => a.symbol.localeCompare(b.symbol) || a.location.localeCompare(b.location));
+  return result;
+}

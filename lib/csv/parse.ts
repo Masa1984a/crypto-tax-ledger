@@ -1,6 +1,6 @@
 import Papa from "papaparse";
 import { transactionInputSchema, type TransactionInput } from "@/lib/validation/transaction";
-import { CANONICAL_CSV_COLUMNS, mapCsvRowToSchemaInput } from "./canonical";
+import { CANONICAL_CSV_REQUIRED_COLUMNS, mapCsvRowToSchemaInput } from "./canonical";
 
 export interface ParsedCsvRow {
   rowNumber: number; // 1-indexed file line number (header row = 1)
@@ -27,11 +27,11 @@ export function parseCanonicalCsv(csvText: string): CsvParseResult {
   });
 
   const actualColumns = parsed.meta.fields ?? [];
-  const missing = CANONICAL_CSV_COLUMNS.filter((c) => !actualColumns.includes(c));
+  const missing = CANONICAL_CSV_REQUIRED_COLUMNS.filter((c) => !actualColumns.includes(c));
   if (missing.length > 0) {
     return {
       rows: [],
-      headerError: `必須列が不足しています: ${missing.join(", ")}(正規フォーマットは13列: ${CANONICAL_CSV_COLUMNS.join(",")})`,
+      headerError: `必須列が不足しています: ${missing.join(", ")}(正規フォーマットは13列必須+location列任意: ${CANONICAL_CSV_REQUIRED_COLUMNS.join(",")})`,
     };
   }
 

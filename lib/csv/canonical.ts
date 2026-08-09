@@ -1,5 +1,6 @@
-// §5.2 正規CSVフォーマット(13列・ヘッダ行必須・UTF-8、BOM許容)
-export const CANONICAL_CSV_COLUMNS = [
+// §5.2 正規CSVフォーマット(必須13列・ヘッダ行必須・UTF-8、BOM許容)
+// location(保管場所)は任意の14列目。旧形式(13列)のファイルも引き続き読み込める。
+export const CANONICAL_CSV_REQUIRED_COLUMNS = [
   "executed_at",
   "tx_type",
   "base_symbol",
@@ -13,6 +14,13 @@ export const CANONICAL_CSV_COLUMNS = [
   "venue",
   "tx_hash",
   "memo",
+] as const;
+
+export const CANONICAL_CSV_OPTIONAL_COLUMNS = ["location"] as const;
+
+export const CANONICAL_CSV_COLUMNS = [
+  ...CANONICAL_CSV_REQUIRED_COLUMNS,
+  ...CANONICAL_CSV_OPTIONAL_COLUMNS,
 ] as const;
 
 export type CanonicalColumn = (typeof CANONICAL_CSV_COLUMNS)[number];
@@ -31,6 +39,7 @@ export interface SchemaInputShape {
   venue: string;
   txHash: string;
   memo: string;
+  location: string;
 }
 
 /** CSVのsnake_caseヘッダ行から、lib/validation/transactionのcamelCaseフィールドへ写像する。 */
@@ -50,6 +59,7 @@ export function mapCsvRowToSchemaInput(row: Record<string, string | undefined>):
     venue: get("venue"),
     txHash: get("tx_hash"),
     memo: get("memo"),
+    location: get("location"),
   };
 }
 

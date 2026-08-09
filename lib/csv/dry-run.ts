@@ -31,6 +31,7 @@ export interface ResolvedRow {
   venue?: string;
   txHash?: string;
   memo?: string;
+  location?: string;
   rowHash: string;
 }
 
@@ -172,6 +173,7 @@ export async function runDryRun(csvText: string): Promise<DryRunReport> {
         venue: data.venue,
         txHash: data.txHash,
         memo: data.memo,
+        location: data.location,
         rowHash,
       },
     });
@@ -261,6 +263,7 @@ export async function commitImport(
           venue: r.resolved!.venue,
           txHash: r.resolved!.txHash,
           memo: r.resolved!.memo,
+          location: r.resolved!.location,
           importBatchId: batch.id,
           rowHash: r.resolved!.rowHash,
         }))

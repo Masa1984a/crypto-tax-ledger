@@ -7,12 +7,14 @@ import { formatJst, jstYear, jstYearRange } from "@/lib/datetime";
 import { formatJpy } from "@/lib/format";
 import { TX_TYPE_LABELS } from "@/lib/validation/transaction";
 import { DeleteButton } from "./DeleteButton";
+import { BulkLocationPanel } from "./BulkLocationPanel";
 
 interface TransactionsSearchParams {
   year?: string;
   asset?: string;
   venue?: string;
   txType?: string;
+  location?: string;
 }
 
 export default async function TransactionsPage({
@@ -49,8 +51,11 @@ export default async function TransactionsPage({
   if (params.txType && (TX_TYPES as readonly string[]).includes(params.txType)) {
     conditions.push(eq(transactions.txType, params.txType as (typeof TX_TYPES)[number]));
   }
+  if (params.location) {
+    conditions.push(eq(transactions.location, params.location));
+  }
 
-  const [rows, yearRows, venueRows] = await Promise.all([
+  const [rows, yearRows, venueRows, locationRows] = await Promise.all([
     db.query.transactions.findMany({
       where: conditions.length > 0 ? and(...conditions) : undefined,
       with: { baseAsset: true, quoteAsset: true, feeAsset: true },
@@ -65,6 +70,7 @@ export default async function TransactionsPage({
       .groupBy(sql`1`)
       .orderBy(sql`1 desc`),
     db.selectDistinct({ venue: transactions.venue }).from(transactions).where(isNotNull(transactions.venue)),
+    db.selectDistinct({ location: transactions.location }).from(transactions).where(isNotNull(transactions.location)),
   ]);
 
   const currentYear = jstYear(new Date());
@@ -73,8 +79,12 @@ export default async function TransactionsPage({
     .map((r) => r.venue)
     .filter((v): v is string => Boolean(v))
     .sort();
+  const locations = locationRows
+    .map((r) => r.location)
+    .filter((v): v is string => Boolean(v))
+    .sort();
 
-  const hasFilter = Boolean(params.year || params.asset || params.venue || params.txType);
+  const hasFilter = Boolean(params.year || params.asset || params.venue || params.txType || params.location);
 
   return (
     <div className="mx-auto max-w-6xl p-6">
@@ -126,6 +136,18 @@ export default async function TransactionsPage({
             </option>
           ))}
         </select>
+        <select
+          name="location"
+          defaultValue={params.location ?? ""}
+          className="rounded border border-gray-300 px-2 py-1"
+        >
+          <option value="">保管場所(すべて)</option>
+          {locations.map((l) => (
+            <option key={l} value={l}>
+              {l}
+            </option>
+          ))}
+        </select>
         <button type="submit" className="rounded border border-gray-300 px-3 py-1 hover:bg-gray-50">
           絞り込み
         </button>
@@ -135,6 +157,19 @@ export default async function TransactionsPage({
           </Link>
         )}
       </form>
+
+      {hasFilter && (
+        <BulkLocationPanel
+          filter={{
+            year: params.year,
+            asset: params.asset,
+            venue: params.venue,
+            txType: params.txType,
+            location: params.location,
+          }}
+          matchCount={rows.length}
+        />
+      )}
 
       <div className="overflow-x-auto rounded border border-gray-200">
         <table className="min-w-full text-sm">
@@ -147,6 +182,7 @@ export default async function TransactionsPage({
               <th className="px-3 py-2 text-right">円換算額</th>
               <th className="px-3 py-2">price_source</th>
               <th className="px-3 py-2">venue</th>
+              <th className="px-3 py-2">保管場所</th>
               <th className="px-3 py-2"></th>
             </tr>
           </thead>
@@ -166,6 +202,7 @@ export default async function TransactionsPage({
                 </td>
                 <td className="px-3 py-2 text-xs text-gray-500">{tx.priceSource ?? "-"}</td>
                 <td className="px-3 py-2">{tx.venue ?? "-"}</td>
+                <td className="px-3 py-2">{tx.location ?? "-"}</td>
                 <td className="whitespace-nowrap px-3 py-2 text-right">
                   <Link href={`/transactions/${tx.id}/edit`} className="mr-3 text-xs text-blue-700 hover:underline">
                     編集
@@ -176,7 +213,7 @@ export default async function TransactionsPage({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-gray-400">
+                <td colSpan={9} className="px-3 py-6 text-center text-gray-400">
                   該当する取引がありません
                 </td>
               </tr>

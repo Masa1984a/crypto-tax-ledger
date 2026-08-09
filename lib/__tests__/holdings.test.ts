@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeHoldings, type HoldingsTransaction } from "@/lib/holdings";
+import { computeHoldings, computeLocationBreakdown, type HoldingsTransaction, type LocationTaggedTransaction } from "@/lib/holdings";
 
 function h(map: Map<string, import("@/lib/decimal").Decimal>, symbol: string): string {
   return map.get(symbol)?.toFixed() ?? "0";
@@ -74,5 +74,39 @@ describe("computeHoldings", () => {
     ];
     const result = computeHoldings(txs);
     expect(h(result, "BTC")).toBe("0.15"); // 0.1 + 0.1 - 0.05
+  });
+});
+
+describe("computeLocationBreakdown", () => {
+  it("sums base_qty by (symbol, location) for acquisition-type rows only", () => {
+    const txs: LocationTaggedTransaction[] = [
+      { txType: "buy", baseSymbol: "SOL", baseQty: "70", location: "BASISでステーキング中" },
+      { txType: "buy", baseSymbol: "SOL", baseQty: "30", location: "BASISでステーキング中" },
+      { txType: "reward", baseSymbol: "SOL", baseQty: "30", location: "Solanaバリデータで運用中" },
+      { txType: "reward", baseSymbol: "BTC", baseQty: "1", location: "BASISで再ステーク中" },
+      { txType: "reward", baseSymbol: "ETH", baseQty: "0.5", location: "Metamask保管" },
+    ];
+    const result = computeLocationBreakdown(txs);
+    expect(result).toEqual([
+      expect.objectContaining({ symbol: "BTC", location: "BASISで再ステーク中" }),
+      expect.objectContaining({ symbol: "ETH", location: "Metamask保管" }),
+      expect.objectContaining({ symbol: "SOL", location: "BASISでステーキング中" }),
+      expect.objectContaining({ symbol: "SOL", location: "Solanaバリデータで運用中" }),
+    ]);
+    const solStaking = result.find((r) => r.symbol === "SOL" && r.location === "BASISでステーキング中");
+    expect(solStaking?.qty.toFixed()).toBe("100");
+  });
+
+  it("ignores rows without a location tag", () => {
+    const txs: LocationTaggedTransaction[] = [{ txType: "buy", baseSymbol: "SOL", baseQty: "10", location: null }];
+    expect(computeLocationBreakdown(txs)).toEqual([]);
+  });
+
+  it("ignores non-acquisition tx_types (fee/transfer) even if tagged", () => {
+    const txs: LocationTaggedTransaction[] = [
+      { txType: "fee", baseSymbol: "ETH", baseQty: "0.01", location: "Metamask" },
+      { txType: "transfer_in", baseSymbol: "BTC", baseQty: "1", location: "Ledger" },
+    ];
+    expect(computeLocationBreakdown(txs)).toEqual([]);
   });
 });

@@ -1,14 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq, gte, lt, or } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { transactions } from "@/lib/db/schema";
+import { transactions, TX_TYPES, type TxType } from "@/lib/db/schema";
 import { getAssetBySymbol, toAssetInfo } from "@/lib/db/assets";
 import { findTransactionByRowHash, rowHashConflictTarget } from "@/lib/db/transactions";
 import { computeRowHash } from "@/lib/hash";
 import { normalizeNumericInput } from "@/lib/numeric";
 import { Decimal } from "@/lib/decimal";
+import { jstYearRange } from "@/lib/datetime";
 import { PricingError, type PriceSource } from "@/lib/pricing/lookup";
 import { resolveConversion } from "@/lib/pricing/db";
 import { transactionInputSchema, transactionUpdateSchema } from "@/lib/validation/transaction";
@@ -167,6 +168,7 @@ export async function createTransaction(raw: unknown): Promise<MutationResult> {
       venue: data.venue ?? null,
       txHash: data.txHash ?? null,
       memo: data.memo ?? null,
+      location: data.location ?? null,
       rowHash,
     })
     .onConflictDoNothing(rowHashConflictTarget)
@@ -246,6 +248,7 @@ export async function updateTransaction(id: number, raw: unknown): Promise<Mutat
       venue: data.venue ?? null,
       txHash: data.txHash ?? null,
       memo: data.memo ?? null,
+      location: data.location ?? null,
       rowHash,
       updatedAt: new Date(),
     })
@@ -261,4 +264,72 @@ export async function deleteTransaction(id: number): Promise<MutationResult> {
   revalidatePath("/transactions");
   revalidatePath("/");
   return { success: true, id };
+}
+
+export interface LocationBulkFilter {
+  year?: string;
+  asset?: string;
+  venue?: string;
+  txType?: string;
+  location?: string;
+}
+
+export interface BulkLocationResult {
+  success: boolean;
+  error?: string;
+  updatedCount?: number;
+}
+
+/**
+ * 一覧の現在の絞り込み条件(§5.3のフィルタと同じ形)に一致する取引へ、まとめて保管場所を設定する。
+ * 誤操作防止のため、絞り込み条件が1つも無い(=全件対象)状態では実行できない。
+ */
+export async function bulkSetLocation(filter: LocationBulkFilter, location: string): Promise<BulkLocationResult> {
+  const trimmedLocation = location.trim();
+  if (!trimmedLocation) {
+    return { success: false, error: "保管場所を入力してください" };
+  }
+
+  const conditions = [];
+  if (filter.year) {
+    const y = Number(filter.year);
+    if (Number.isInteger(y)) {
+      const { start, end } = jstYearRange(y);
+      conditions.push(gte(transactions.executedAt, start), lt(transactions.executedAt, end));
+    }
+  }
+  if (filter.asset) {
+    const asset = await getAssetBySymbol(filter.asset);
+    if (!asset) return { success: false, error: `不明な銘柄です: ${filter.asset}` };
+    conditions.push(
+      or(
+        eq(transactions.baseAssetId, asset.id),
+        eq(transactions.quoteAssetId, asset.id),
+        eq(transactions.feeAssetId, asset.id)
+      )
+    );
+  }
+  if (filter.venue) {
+    conditions.push(eq(transactions.venue, filter.venue));
+  }
+  if (filter.txType && (TX_TYPES as readonly string[]).includes(filter.txType)) {
+    conditions.push(eq(transactions.txType, filter.txType as TxType));
+  }
+  if (filter.location) {
+    conditions.push(eq(transactions.location, filter.location));
+  }
+
+  if (conditions.length === 0) {
+    return { success: false, error: "絞り込み条件を1つ以上指定してください(全件一括変更は事故防止のため禁止しています)" };
+  }
+
+  const updated = await db
+    .update(transactions)
+    .set({ location: trimmedLocation, updatedAt: new Date() })
+    .where(and(...conditions))
+    .returning({ id: transactions.id });
+
+  revalidatePath("/transactions");
+  revalidatePath("/");
+  return { success: true, updatedCount: updated.length };
 }

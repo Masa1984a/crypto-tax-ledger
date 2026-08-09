@@ -1,9 +1,9 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, dailyPrices, fxRates } from "@/lib/db/schema";
+import { assets, dailyPrices, fxRates, transactions } from "@/lib/db/schema";
 import { Decimal, roundJpy } from "@/lib/decimal";
 import { diffUtcDays, toUtcDateString } from "@/lib/datetime";
-import { computeHoldings } from "@/lib/holdings";
+import { computeHoldings, computeLocationBreakdown, type LocationBreakdownRow } from "@/lib/holdings";
 
 export interface HoldingValuation {
   symbol: string;
@@ -87,6 +87,23 @@ export async function getHoldingsSummary(): Promise<HoldingsSummary> {
   holdings.sort((a, b) => (b.valueJpy ?? new Decimal(0)).minus(a.valueJpy ?? new Decimal(0)).toNumber());
 
   return { holdings, totalValueUsd, totalValueJpy: roundJpy(totalValueJpy), latestUsdjpy };
+}
+
+/** §5.5拡張: 保管場所タグの内訳(取得ベース・参考値)。 */
+export async function getLocationBreakdown(): Promise<LocationBreakdownRow[]> {
+  const rows = await db.query.transactions.findMany({
+    where: isNotNull(transactions.location),
+    with: { baseAsset: true },
+  });
+
+  return computeLocationBreakdown(
+    rows.map((r) => ({
+      txType: r.txType as never,
+      baseSymbol: r.baseAsset.symbol,
+      baseQty: r.baseQty,
+      location: r.location,
+    }))
+  );
 }
 
 export interface DataFreshness {

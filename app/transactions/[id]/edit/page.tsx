@@ -50,6 +50,7 @@ export default async function EditTransactionPage({ params }: { params: Promise<
           venue: tx.venue ?? "",
           txHash: tx.txHash ?? "",
           memo: tx.memo ?? "",
+          location: tx.location ?? "",
         }}
       />
     </div>
