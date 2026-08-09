@@ -1,69 +1,141 @@
-import Image from "next/image";
+import Link from "next/link";
+import { getDataFreshness, getHoldingsSummary, isStale } from "@/lib/dashboard";
+import { generateAnnualReport } from "@/lib/tax/db";
+import { jstYear } from "@/lib/datetime";
+import { formatJpy } from "@/lib/format";
 
-export default function Home() {
+export default async function DashboardPage() {
+  const currentYear = jstYear(new Date());
+  const [holdingsSummary, freshness, yearReport] = await Promise.all([
+    getHoldingsSummary(),
+    getDataFreshness(),
+    generateAnnualReport(currentYear),
+  ]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="mx-auto max-w-6xl space-y-6 p-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">ダッシュボード</h1>
+        <nav className="flex items-center gap-3 text-sm">
+          <Link href="/transactions" className="text-blue-700 hover:underline">
+            取引一覧
+          </Link>
+          <Link href="/import" className="text-blue-700 hover:underline">
+            CSV取込
+          </Link>
+          <Link href="/assets" className="text-blue-700 hover:underline">
+            資産マスタ
+          </Link>
+          <Link href={`/reports/${currentYear}`} className="text-blue-700 hover:underline">
+            年次レポート
+          </Link>
+          <Link
+            href="/transactions/new"
+            className="rounded bg-gray-900 px-3 py-1.5 text-white hover:bg-gray-700"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            + 手入力
+          </Link>
+        </nav>
+      </div>
+
+      <FreshnessBanner freshness={freshness} />
+
+      <section>
+        <h2 className="mb-2 text-sm font-medium text-gray-600">保有資産評価額</h2>
+        <div className="mb-3 grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <SummaryCard label="評価額合計(円)" value={formatJpy(holdingsSummary.totalValueJpy)} />
+          <SummaryCard label="評価額合計(USD)" value={`$${holdingsSummary.totalValueUsd.toFixed(2)}`} />
+          <SummaryCard
+            label="適用TTM"
+            value={holdingsSummary.latestUsdjpy ? holdingsSummary.latestUsdjpy.toFixed(4) : "-"}
+          />
         </div>
-      </main>
+        <div className="overflow-x-auto rounded border border-gray-200">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
+              <tr>
+                <th className="px-3 py-2">symbol</th>
+                <th className="px-3 py-2 text-right">保有数量</th>
+                <th className="px-3 py-2 text-right">最新終値(USD)</th>
+                <th className="px-3 py-2 text-right">評価額(USD)</th>
+                <th className="px-3 py-2 text-right">評価額(円)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {holdingsSummary.holdings.map((h) => (
+                <tr key={h.symbol} className="border-t border-gray-100">
+                  <td className="px-3 py-2 font-mono">{h.symbol}</td>
+                  <td className="px-3 py-2 text-right">{h.qty.toFixed()}</td>
+                  <td className="px-3 py-2 text-right">{h.closeUsd ? `$${h.closeUsd.toFixed(2)}` : "-"}</td>
+                  <td className="px-3 py-2 text-right">{h.valueUsd ? `$${h.valueUsd.toFixed(2)}` : "-"}</td>
+                  <td className="px-3 py-2 text-right">{h.valueJpy ? formatJpy(h.valueJpy) : "-"}</td>
+                </tr>
+              ))}
+              {holdingsSummary.holdings.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-3 py-6 text-center text-gray-400">
+                    保有資産がありません
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-sm font-medium text-gray-600">{currentYear}年 サマリ(参考値)</h2>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <SummaryCard label="実現損益合計" value={formatJpy(yearReport.totalRealizedGainJpy)} />
+          <SummaryCard label="報酬所得合計" value={formatJpy(yearReport.totalRewardIncomeJpy)} />
+          <SummaryCard label="必要経費合計" value={formatJpy(yearReport.totalFeeExpenseJpy)} />
+          <SummaryCard label="雑所得(参考値)" value={formatJpy(yearReport.miscIncomeJpy)} emphasize />
+        </div>
+        {yearReport.warnings.length > 0 && (
+          <div className="mt-3 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="mb-1 font-medium">データ不整合の警告</p>
+            <ul className="list-disc pl-5">
+              {yearReport.warnings.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function SummaryCard({ label, value, emphasize }: { label: string; value: string; emphasize?: boolean }) {
+  return (
+    <div className={`rounded border p-4 ${emphasize ? "border-gray-900" : "border-gray-200"}`}>
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className={`mt-1 text-lg ${emphasize ? "font-bold" : "font-medium"}`}>{value}</p>
+    </div>
+  );
+}
+
+function FreshnessBanner({
+  freshness,
+}: {
+  freshness: Awaited<ReturnType<typeof getDataFreshness>>;
+}) {
+  const priceStale = isStale(freshness.priceStaleDays);
+  const rateStale = isStale(freshness.rateStaleDays);
+  if (!priceStale && !rateStale) {
+    return (
+      <div className="rounded border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800">
+        価格データ最終日: {freshness.latestPriceDate ?? "-"} / 為替レート最終日: {freshness.latestRateDate ?? "-"}
+        (最新)
+      </div>
+    );
+  }
+  return (
+    <div className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+      ⚠ データが古い可能性があります(cronの失敗を確認してください): 価格データ最終日=
+      {freshness.latestPriceDate ?? "取得なし"}
+      {priceStale && "(古い)"}、為替レート最終日={freshness.latestRateDate ?? "取得なし"}
+      {rateStale && "(古い)"}
     </div>
   );
 }
