@@ -5,6 +5,10 @@ import { jstYear } from "@/lib/datetime";
 import { formatJpy } from "@/lib/format";
 import type { Decimal } from "@/lib/decimal";
 
+// DBを直接読むため常に動的レンダリングにする(Full Route Cache対策。app/page.tsx参照。
+// 動的segment [year] はgenerateStaticParams未使用でも年ごとに個別キャッシュされ得るため必須)。
+export const dynamic = "force-dynamic";
+
 export default async function ReportPage({ params }: { params: Promise<{ year: string }> }) {
   const { year: yearParam } = await params;
   const year = Number(yearParam);

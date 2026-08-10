@@ -2,6 +2,9 @@ import Link from "next/link";
 import { listAssets } from "@/lib/db/assets";
 import { AssetsTable } from "./AssetsTable";
 
+// DBを直接読むため常に動的レンダリングにする(Full Route Cache対策。app/page.tsx参照)。
+export const dynamic = "force-dynamic";
+
 export default async function AssetsPage() {
   const assets = await listAssets();
 

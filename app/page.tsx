@@ -4,6 +4,11 @@ import { generateAnnualReport } from "@/lib/tax/db";
 import { jstYear } from "@/lib/datetime";
 import { formatJpy } from "@/lib/format";
 
+// DBを直接読むため(fetchを使わない)、静的レンダリング/Full Route Cacheの対象外にして
+// 常に最新のDB状態を反映させる(手動スクリプトでの直接INSERT等はfetchキャッシュを経由しないため
+// このexportが無いと本番(Vercel)ではビルド時点のスナップショットのまま更新されない)。
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const currentYear = jstYear(new Date());
   const [holdingsSummary, freshness, yearReport, locationBreakdown] = await Promise.all([

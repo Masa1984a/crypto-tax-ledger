@@ -7,6 +7,9 @@ import { listAssets } from "@/lib/db/assets";
 import { toJstIsoString } from "@/lib/datetime";
 import { TransactionForm } from "../../TransactionForm";
 
+// DBを直接読むため常に動的レンダリングにする(Full Route Cache対策。app/page.tsx参照)。
+export const dynamic = "force-dynamic";
+
 export default async function EditTransactionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: idParam } = await params;
   const id = Number(idParam);

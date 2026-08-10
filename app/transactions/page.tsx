@@ -9,6 +9,9 @@ import { TX_TYPE_LABELS } from "@/lib/validation/transaction";
 import { DeleteButton } from "./DeleteButton";
 import { BulkLocationPanel } from "./BulkLocationPanel";
 
+// DBを直接読むため常に動的レンダリングにする(Full Route Cache対策。app/page.tsx参照)。
+export const dynamic = "force-dynamic";
+
 interface TransactionsSearchParams {
   year?: string;
   asset?: string;

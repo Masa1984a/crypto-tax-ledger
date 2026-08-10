@@ -5,6 +5,9 @@ import { importBatches, transactions } from "@/lib/db/schema";
 import { formatJst } from "@/lib/datetime";
 import { CancelBatchButton } from "./CancelBatchButton";
 
+// DBを直接読むため常に動的レンダリングにする(Full Route Cache対策。app/page.tsx参照)。
+export const dynamic = "force-dynamic";
+
 export default async function ImportBatchesPage() {
   const rows = await db
     .select({
