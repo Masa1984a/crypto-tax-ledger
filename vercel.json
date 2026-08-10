@@ -1,7 +1,6 @@
 {
   "regions": ["hnd1"],
   "crons": [
-    { "path": "/api/cron/daily-prices", "schedule": "15 0 * * *" },
-    { "path": "/api/cron/fx-rates", "schedule": "0 2 * * *" }
+    { "path": "/api/cron/daily-prices", "schedule": "15 0 * * *" }
   ]
 }

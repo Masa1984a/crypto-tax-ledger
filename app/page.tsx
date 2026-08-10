@@ -152,20 +152,34 @@ function FreshnessBanner({
 }) {
   const priceStale = isStale(freshness.priceStaleDays);
   const rateStale = isStale(freshness.rateStaleDays);
-  if (!priceStale && !rateStale) {
-    return (
-      <div className="rounded border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800">
-        価格データ最終日: {freshness.latestPriceDate ?? "-"} / 為替レート最終日: {freshness.latestRateDate ?? "-"}
-        (最新)
-      </div>
-    );
-  }
+
   return (
-    <div className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
-      ⚠ データが古い可能性があります(cronの失敗を確認してください): 価格データ最終日=
-      {freshness.latestPriceDate ?? "取得なし"}
-      {priceStale && "(古い)"}、為替レート最終日={freshness.latestRateDate ?? "取得なし"}
-      {rateStale && "(古い)"}
+    <div className="space-y-2">
+      {/* daily_prices: 自動cron稼働中。古い場合はcron失敗の実害を示す警告。 */}
+      {priceStale ? (
+        <div className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+          ⚠ 価格データが古い可能性があります(cronの失敗を確認してください): 最終日=
+          {freshness.latestPriceDate ?? "取得なし"}
+        </div>
+      ) : (
+        <div className="rounded border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800">
+          価格データ最終日: {freshness.latestPriceDate ?? "-"} (最新)
+        </div>
+      )}
+
+      {/* fx_rates(みずほTTM): VercelからはAkamai WAFに403で拒否されるため自動cronは組んでいない。
+          手動 `npm run backfill` 運用が前提なので、古い=障害ではなく「更新してください」の案内。 */}
+      {rateStale ? (
+        <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          ℹ 為替レート(みずほTTM)の最終日={freshness.latestRateDate ?? "取得なし"}
+          。自動取得は行っていないため、確定申告前など必要なタイミングでご自身のPCから{" "}
+          <code className="rounded bg-amber-100 px-1">npm run backfill</code> を実行してください。
+        </div>
+      ) : (
+        <div className="rounded border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800">
+          為替レート最終日: {freshness.latestRateDate ?? "-"} (最新)
+        </div>
+      )}
     </div>
   );
 }
