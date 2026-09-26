@@ -361,15 +361,17 @@ symbol / 期首数量 / 期首取得価額 / 年中購入数量 / 年中購入�
 // vercel.json (schedule は UTC)
 {
   "crons": [
-    { "path": "/api/cron/daily-prices", "schedule": "15 0 * * *" },
-    { "path": "/api/cron/fx-rates",     "schedule": "0 2 * * *" }
+    { "path": "/api/cron/daily-prices", "schedule": "15 0 */2 * *" }
   ]
 }
 ```
 
-- 00:15 UTC(09:15 JST)に前日終値、02:00 UTC(11:00 JST)に当日 TTM を取得する配置
+- **2 日に 1 回** 00:15 UTC(09:15 JST)に終値を取得する配置
+- **daily-prices の実行頻度は API クォータ由来の制約**: CryptoCompare 無料プランは**月 100 コール**で、1 実行あたり対象資産数ぶん(現状 4 コール)消費する。毎日実行すると月 120 コールとなり毎月 25 日前後に上限へ達し、以降の価格更新が月末まで停止する(2026-09-26 実測: month 134/100)。2 日に 1 回なら月 60 コールに収まり、手動 backfill 用の余力も残る。取り込み遅延は最大 2 日で §4.1 の 3 日遡及フォールバックの範囲内
+- **fx-rates は crons に登録しない**: みずほの WAF が Vercel のサーバーレス関数を 403 で拒否するため自動実行できない(§7.2 参照)。ルート自体は CRON_SECRET 保護のまま残し、更新は `npm run backfill` による手動運用とする
 - 認証: `Authorization: Bearer ${CRON_SECRET}` を検証(Vercel Cron が自動付与)。不一致は 401
-- **自己修復**: daily-prices は毎回**直近 7 日分**を、fx-rates は**直近 30 日分**を upsert(`ON CONFLICT ... DO UPDATE`)し、取りこぼしを自動回復する
+- **自己修復**: daily-prices は毎回**直近 7 日分**を、fx-rates は**直近 30 日分**を upsert(`ON CONFLICT ... DO UPDATE`)し、取りこぼしを自動回復する。7 日窓は 2 日間隔でも 3 回ぶん重なるため、単発の失敗は次回以降で回収される
+- クォータ超過時は資産ごとの `try/catch` で該当資産だけ静かにスキップされ 207 が返る。停止の検知は `npm run audit`(`scripts/audit.ts`: `daily_prices` の欠損とスナップショットのズレを検査)で行う
 
 ### 7.4 バックフィルスクリプト `scripts/backfill.ts`
 
