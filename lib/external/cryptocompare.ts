@@ -3,6 +3,34 @@ import { toUtcDateString } from "@/lib/datetime";
 
 const HISTODAY_URL = "https://min-api.cryptocompare.com/data/v2/histoday";
 
+/**
+ * 無料プランは月100コールに加えて**1秒あたり1コール**の制限がある(2026-10-13 /stats/rate/limit で確認)。
+ * 資産ごとの取得を間隔なしで連続して呼ぶと、同じ秒に重なった呼び出しが
+ * "You are over your rate limit" で失敗し、その資産の価格だけ静かに更新が止まっていた。
+ * 間隔は「前の応答を受け取ってから」数える。送信時刻基準だと、初回だけ接続確立(TLS)の分
+ * サーバー到着が遅れ、2本目と1秒以内に届くことがあるため。
+ */
+export const MIN_REQUEST_GAP_MS = 1100;
+
+let lastResponseAt = 0;
+let requestQueue: Promise<unknown> = Promise.resolve();
+
+/** 並行に呼ばれても1本ずつ、前の応答から MIN_REQUEST_GAP_MS 空けて fetch する。 */
+function rateLimitedFetch(url: string): Promise<Response> {
+  const run = requestQueue.then(async () => {
+    const waitMs = lastResponseAt + MIN_REQUEST_GAP_MS - Date.now();
+    if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
+    try {
+      return await fetch(url);
+    } finally {
+      lastResponseAt = Date.now();
+    }
+  });
+  // 失敗したリクエストで後続が止まらないよう、キューには結果を捨てた Promise を繋ぐ
+  requestQueue = run.catch(() => undefined);
+  return run;
+}
+
 export interface CryptoCompareDailyPoint {
   priceDate: string; // YYYY-MM-DD (UTC)
   closeUsd: string;
@@ -35,7 +63,7 @@ export async function fetchDailyHistory(
     url.searchParams.set("toTs", String(toTs));
   }
 
-  const res = await fetch(url.toString());
+  const res = await rateLimitedFetch(url.toString());
   if (!res.ok) {
     throw new Error(`CryptoCompare request failed for ${ccSymbol}: ${res.status} ${res.statusText}`);
   }

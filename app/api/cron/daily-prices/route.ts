@@ -4,13 +4,18 @@ import { ingestDailyPrices } from "@/lib/ingest/daily-prices";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// CryptoCompareへは1秒1コールの制限に合わせて約1秒間隔で直列に問い合わせるため
+// (lib/external/cryptocompare.ts)、所要時間は対象資産数×1秒強になる。旧来のHobby既定(10秒)に
+// 依存しないよう上限を明示する。
+export const maxDuration = 60;
 
 // §7.3: 自己修復のため毎回直近7日分をupsertする。
 //
 // cronは2日に1回(vercel.json: "15 0 */2 * *")。CryptoCompareの無料プランは
-// 月100コールで、1実行あたり対象資産数ぶん(現状4コール)消費する。毎日実行すると月120コールとなり
-// 毎月25日前後に上限へ達して以降の価格更新が止まる(2026-09-26実測: month 134/100、
-// hourは9/100で余裕があった)。2日に1回なら月60コールに収まり、手動backfill用の余力も残る。
+// 月100コールで、1実行あたり対象資産数ぶん(現状5コール: BTC/ETH/PAXG/SOL/XAUT)消費する。
+// 毎日実行すると月150コールとなり月の半ば過ぎに上限へ達して以降の価格更新が止まる
+// (2026-09-26実測: 4資産時点で month 134/100、hourは9/100で余裕があった)。
+// 2日に1回なら月75〜80コールに収まり、手動backfill用の余力も残る。
 // 取り込み遅延は最大2日で、§4.1の3日遡及フォールバックの範囲内に収まる。
 //
 // 資産ごとにtry/catchしているためクォータ超過時は該当資産だけ静かにスキップされ、

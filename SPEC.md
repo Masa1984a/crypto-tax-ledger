@@ -347,6 +347,7 @@ symbol / 期首数量 / 期首取得価額 / 年中購入数量 / 年中購入�
 - `GET https://min-api.cryptocompare.com/data/v2/histoday?fsym={cc_symbol}&tsym=USD&limit={n}&api_key={KEY}`
 - レスポンス `Data.Data[]` の `{time, close}` を使用。`time`(UTC 日境界の epoch)→ `price_date`、`close` → `close_usd`
 - 対象: `track_price = true AND cc_symbol IS NOT NULL` の全資産
+- **レート制限**: 無料プランは月 100 コールに加えて **1 秒 1 コール**の制限がある(2026-10-13 `/stats/rate/limit` で確認)。間隔なしで連続して呼ぶと同じ秒に重なった資産が "You are over your rate limit" で失敗するため、API クライアントで全リクエストを直列化し、**前の応答から 1.1 秒**空けて送る(cron・backfill・ページングすべてに適用)
 
 ### 7.2 為替 — みずほ銀行ヒストリカルデータ
 
@@ -367,7 +368,7 @@ symbol / 期首数量 / 期首取得価額 / 年中購入数量 / 年中購入�
 ```
 
 - **2 日に 1 回** 00:15 UTC(09:15 JST)に終値を取得する配置
-- **daily-prices の実行頻度は API クォータ由来の制約**: CryptoCompare 無料プランは**月 100 コール**で、1 実行あたり対象資産数ぶん(現状 4 コール)消費する。毎日実行すると月 120 コールとなり毎月 25 日前後に上限へ達し、以降の価格更新が月末まで停止する(2026-09-26 実測: month 134/100)。2 日に 1 回なら月 60 コールに収まり、手動 backfill 用の余力も残る。取り込み遅延は最大 2 日で §4.1 の 3 日遡及フォールバックの範囲内
+- **daily-prices の実行頻度は API クォータ由来の制約**: CryptoCompare 無料プランは**月 100 コール**で、1 実行あたり対象資産数ぶん(現状 5 コール: BTC/ETH/PAXG/SOL/XAUT)消費する。毎日実行すると月 150 コールとなり月の半ば過ぎに上限へ達し、以降の価格更新が月末まで停止する(2026-09-26 実測: 4 資産時点で month 134/100)。2 日に 1 回なら月 75〜80 コールに収まり、手動 backfill 用の余力も残る。取り込み遅延は最大 2 日で §4.1 の 3 日遡及フォールバックの範囲内
 - **fx-rates は crons に登録しない**: みずほの WAF が Vercel のサーバーレス関数を 403 で拒否するため自動実行できない(§7.2 参照)。ルート自体は CRON_SECRET 保護のまま残し、更新は `npm run backfill` による手動運用とする
 - 認証: `Authorization: Bearer ${CRON_SECRET}` を検証(Vercel Cron が自動付与)。不一致は 401
 - **自己修復**: daily-prices は毎回**直近 7 日分**を、fx-rates は**直近 30 日分**を upsert(`ON CONFLICT ... DO UPDATE`)し、取りこぼしを自動回復する。7 日窓は 2 日間隔でも 3 回ぶん重なるため、単発の失敗は次回以降で回収される
