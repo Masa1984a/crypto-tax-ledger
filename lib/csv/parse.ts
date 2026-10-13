@@ -31,7 +31,7 @@ export function parseCanonicalCsv(csvText: string): CsvParseResult {
   if (missing.length > 0) {
     return {
       rows: [],
-      headerError: `必須列が不足しています: ${missing.join(", ")}(正規フォーマットは13列必須+location列任意: ${CANONICAL_CSV_REQUIRED_COLUMNS.join(",")})`,
+      headerError: `必須列が不足しています: ${missing.join(", ")}(正規フォーマットは13列必須+location/source_location列任意:${CANONICAL_CSV_REQUIRED_COLUMNS.join(",")})`,
     };
   }
 

@@ -91,7 +91,7 @@ export default async function DashboardPage() {
 
       {locationBreakdown.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-medium text-gray-600">保管場所別の内訳(取得ベース・参考値)</h2>
+          <h2 className="mb-2 text-sm font-medium text-gray-600">保管場所別の内訳</h2>
           <div className="overflow-x-auto rounded border border-gray-200">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
@@ -103,17 +103,23 @@ export default async function DashboardPage() {
               </thead>
               <tbody>
                 {locationBreakdown.map((row) => (
-                  <tr key={`${row.symbol}|${row.location}`} className="border-t border-gray-100">
+                  <tr key={`${row.symbol}|${row.location ?? ""}`} className="border-t border-gray-100">
                     <td className="px-3 py-2 font-mono">{row.symbol}</td>
-                    <td className="px-3 py-2">{row.location}</td>
-                    <td className="px-3 py-2 text-right">{row.qty.toFixed()}</td>
+                    <td className={`px-3 py-2 ${row.location === null ? "text-gray-400" : ""}`}>
+                      {row.location ?? "(タグなし)"}
+                    </td>
+                    <td className={`px-3 py-2 text-right ${row.qty.isNegative() ? "font-medium text-red-600" : ""}`}>
+                      {row.qty.toFixed()}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <p className="mt-1 text-xs text-gray-400">
-            ※ 取得(buy/sell/swap/reward)時に設定した保管場所タグの単純合計です。その後の売却・移動は反映されません。
+            ※ 受け取り・移動先の保管場所に足した数量から、支払元・移動元として指定した保管場所の分を差し引いています。
+            「(タグなし)」は保有数量のうち保管場所が未設定の分で、銘柄ごとの合計は保有数量と一致します。
+            赤字のマイナスは、保管場所か支払元の付け忘れ・誤りを示します。
           </p>
         </section>
       )}

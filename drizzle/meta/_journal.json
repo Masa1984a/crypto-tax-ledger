@@ -15,6 +15,13 @@
       "when": 1786277644897,
       "tag": "0001_cynical_thunderbird",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791898972741,
+      "tag": "0002_opposite_morlun",
+      "breakpoints": true
     }
   ]
 }

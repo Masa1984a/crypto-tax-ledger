@@ -69,6 +69,7 @@ const transactionBaseObjectSchema = z.object({
   txHash: optionalText,
   memo: optionalText,
   location: optionalText,
+  sourceLocation: optionalText,
 });
 
 function applyCommonRules<T extends z.infer<typeof transactionBaseObjectSchema>>(data: T, ctx: z.RefinementCtx) {
@@ -102,6 +103,15 @@ function applyCommonRules<T extends z.infer<typeof transactionBaseObjectSchema>>
 
   if (data.baseSymbol === "JPY" && data.quoteSymbol === "JPY") {
     ctx.addIssue({ code: "custom", path: ["quoteSymbol"], message: "base/quoteの両方をJPYにはできません" });
+  }
+
+  // 支払元の保管場所は「手放した資産」がある行でのみ意味を持つ。手数料の無いrewardには手放す資産が無い。
+  if (data.sourceLocation && data.txType === "reward" && !data.feeQty) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["sourceLocation"],
+      message: "手数料の無いrewardには手放した資産が無いため、支払元の保管場所は指定できません",
+    });
   }
 }
 

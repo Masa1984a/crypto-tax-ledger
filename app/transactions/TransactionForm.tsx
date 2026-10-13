@@ -29,6 +29,7 @@ interface FormValues {
   txHash: string;
   memo: string;
   location: string;
+  sourceLocation: string;
 }
 
 export interface TransactionFormProps {
@@ -36,6 +37,8 @@ export interface TransactionFormProps {
   mode: "create" | "edit";
   transactionId?: number;
   initialData?: Partial<FormValues>;
+  /** 既存の保管場所タグ。内訳は完全一致で集計するので、表記ゆれ防止の入力候補として出す。 */
+  locationTags?: string[];
 }
 
 function defaultExecutedAt(): string {
@@ -49,7 +52,7 @@ const PRICE_SOURCE_LABELS: Record<string, string> = {
   daily_close_prev: "日次終値(繰越)",
 };
 
-export function TransactionForm({ assets, mode, transactionId, initialData }: TransactionFormProps) {
+export function TransactionForm({ assets, mode, transactionId, initialData, locationTags = [] }: TransactionFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [formError, setFormError] = useState<string | null>(null);
@@ -85,6 +88,7 @@ export function TransactionForm({ assets, mode, transactionId, initialData }: Tr
       txHash: "",
       memo: "",
       location: "",
+      sourceLocation: "",
       ...initialData,
     },
   });
@@ -184,6 +188,7 @@ export function TransactionForm({ assets, mode, transactionId, initialData }: Tr
         txHash: values.txHash || undefined,
         memo: values.memo || undefined,
         location: values.location || undefined,
+        sourceLocation: values.sourceLocation || undefined,
       };
 
       const result =
@@ -361,7 +366,7 @@ export function TransactionForm({ assets, mode, transactionId, initialData }: Tr
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium">venue</label>
           <input {...register("venue")} className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
@@ -374,16 +379,43 @@ export function TransactionForm({ assets, mode, transactionId, initialData }: Tr
           <label className="block text-sm font-medium">memo</label>
           <input {...register("memo")} className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium" title="現在の保管場所(ステーキング先・ウォレット等)。資産の移動に応じて自由に編集してください。">
-            保管場所
+          <label
+            className="block text-sm font-medium"
+            title="手放した資産(quote・fee・単独手数料・移動する資産)が出た保管場所。保管場所の内訳でここから差し引きます。"
+          >
+            支払元・移動元の保管場所(任意)
+          </label>
+          <input
+            {...register("sourceLocation")}
+            list="location-tags"
+            placeholder="例: Ledgerで保管"
+            className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+          />
+          {errors.sourceLocation && <p className="mt-1 text-xs text-red-600">{errors.sourceLocation.message}</p>}
+        </div>
+        <div>
+          <label
+            className="block text-sm font-medium"
+            title="受け取った資産(移動では移動先)の保管場所。支払元として参照されている取得行は付け替えず、一部の移動は移動(transfer)取引で記録してください。"
+          >
+            保管場所(受け取り先・移動先)
           </label>
           <input
             {...register("location")}
+            list="location-tags"
             placeholder="例: BASISでステーキング中"
             className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
           />
         </div>
+        <datalist id="location-tags">
+          {locationTags.map((tag) => (
+            <option key={tag} value={tag} />
+          ))}
+        </datalist>
       </div>
 
       <div className="flex gap-3">

@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { transactions } from "@/lib/db/schema";
 import { listAssets } from "@/lib/db/assets";
+import { listLocationTags } from "@/lib/db/transactions";
 import { toJstIsoString } from "@/lib/datetime";
 import { TransactionForm } from "../../TransactionForm";
 
@@ -15,8 +16,9 @@ export default async function EditTransactionPage({ params }: { params: Promise<
   const id = Number(idParam);
   if (!Number.isInteger(id)) notFound();
 
-  const [assets, tx] = await Promise.all([
+  const [assets, locationTags, tx] = await Promise.all([
     listAssets(),
+    listLocationTags(),
     db.query.transactions.findFirst({
       where: eq(transactions.id, id),
       with: { baseAsset: true, quoteAsset: true, feeAsset: true },
@@ -37,6 +39,7 @@ export default async function EditTransactionPage({ params }: { params: Promise<
         mode="edit"
         assets={assets}
         transactionId={tx.id}
+        locationTags={locationTags}
         initialData={{
           executedAt: toJstIsoString(tx.executedAt),
           txType: tx.txType as never,
@@ -54,6 +57,7 @@ export default async function EditTransactionPage({ params }: { params: Promise<
           txHash: tx.txHash ?? "",
           memo: tx.memo ?? "",
           location: tx.location ?? "",
+          sourceLocation: tx.sourceLocation ?? "",
         }}
       />
     </div>

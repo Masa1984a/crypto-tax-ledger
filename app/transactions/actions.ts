@@ -169,6 +169,7 @@ export async function createTransaction(raw: unknown): Promise<MutationResult> {
       txHash: data.txHash ?? null,
       memo: data.memo ?? null,
       location: data.location ?? null,
+      sourceLocation: data.sourceLocation ?? null,
       rowHash,
     })
     .onConflictDoNothing(rowHashConflictTarget)
@@ -249,6 +250,7 @@ export async function updateTransaction(id: number, raw: unknown): Promise<Mutat
       txHash: data.txHash ?? null,
       memo: data.memo ?? null,
       location: data.location ?? null,
+      sourceLocation: data.sourceLocation ?? null,
       rowHash,
       updatedAt: new Date(),
     })

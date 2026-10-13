@@ -13,18 +13,18 @@
 
 ---
 
-## 1. 出力フォーマット(必須13列+任意1列・固定順・ヘッダ必須)
+## 1. 出力フォーマット(必須13列+任意2列・固定順・ヘッダ必須)
 
 先頭行は必ずこのヘッダ(snake_case、この順序):
 
 ```
-executed_at,tx_type,base_symbol,base_qty,quote_symbol,quote_qty,price_usd,usdjpy,fee_symbol,fee_qty,venue,tx_hash,memo,location
+executed_at,tx_type,base_symbol,base_qty,quote_symbol,quote_qty,price_usd,usdjpy,fee_symbol,fee_qty,venue,tx_hash,memo,location,source_location
 ```
 
 - 文字コードは UTF-8
 - 値にカンマ・改行・ダブルクォートを含む場合は RFC 4180 に従い `"..."` で囲む(memoなど)
 - 空欄は空文字(連続カンマ)で表現する
-- 14列目 `location`(保管場所)は**任意**。無くても(13列のままでも)読み込める。§5-b参照
+- 14列目 `location`(保管場所)と15列目 `source_location`(支払元・移動元の保管場所)は**任意**。無くても(13列・14列のままでも)読み込める。§5 の該当項参照
 
 ---
 
@@ -128,11 +128,22 @@ executed_at,tx_type,base_symbol,base_qty,quote_symbol,quote_qty,price_usd,usdjpy
 - 補足。推定・要確認事項もここに書く。
 
 ### location(任意・14列目)
-- **資産の現在の保管場所**(ステーキング先・ウォレット・バリデータ等)。`venue`(取引の実行場所・不変)とは別概念で、資産が後から移動しても構わず現在の状態を書く可変タグ。
+- **受け取った資産(base)の保管場所**(ステーキング先・ウォレット・バリデータ等)。`transfer_in`/`transfer_out` では**移動先**。`venue`(取引の実行場所・不変)とは別概念。
 - 税計算には一切影響しない。**row_hash(重複判定)にも含まれない**ので、後から値を変えても重複判定は壊れない。
 - 例: `BASISでステーキング中`、`Solanaバリデータで運用中`、`Metamask保管`
-- 取得元データに保管場所の情報が無い場合は空欄でよい(後でアプリのUIから一括設定できる)。
-- 同じ資産・同じ理由で入手した行はまとめて同じ文言にする(表記ゆれがあるとダッシュボードの内訳で別グループに分かれてしまう)。
+- 取得元データに保管場所の情報が無い場合は空欄でよい(後でアプリのUIから一括設定できる)。空欄の分はダッシュボードの内訳で「(タグなし)」に入る。
+- 同じ資産・同じ理由で入手した行はまとめて同じ文言にする。内訳は**文字列の完全一致**で集計するので、表記ゆれ(`Basis`/`BASIS` など)があると別の保管場所として扱われてしまう。
+- 資産を**一部だけ**別の場所へ移したときは、元の行の location を書き換えず、`transfer_out`(または `transfer_in`)行を1行追加して `source_location`=移動元、`location`=移動先 で記録する(保有数量・税計算には影響しない)。丸ごと移した場合で、その行を `source_location` で参照する支払いが無ければ、元の行の location を書き換えてもよい。
+
+### source_location(任意・15列目)
+- **手放した資産が出た保管場所**。ダッシュボードの内訳で、この保管場所から数量を差し引く。location と同じく税計算・row_hash には影響しない。
+- 対象: `buy`/`sell`/`swap` の quote(支払った資産)、`fee` 行の base(支払った資産)、`transfer_*` の移動元、`fee_qty`(手数料)。
+  - `fee_qty` は、受け取った資産(base)と同じ銘柄なら location 側から、別の銘柄なら source_location 側から差し引く(transfer は常に source_location 側)。
+- 例: Ledger に保管していた PAXG を SOL に交換 → `source_location=Ledgerで保管`、`location=Solanaバリデータで運用中`
+- 支払った資産に保管場所タグを付けていない場合(報酬をそのまま決済に使った等)や、JPY で支払った場合は空欄でよい。
+- 手数料の無い `reward` には手放した資産が無いので指定できない(エラー)。
+- 既存の location / source_location と**完全に同じ文言**を使うこと。
+- **年末の棚卸し**: 手数料等で実際の残高が台帳より少ない分は、保管場所ごとに `fee` 行(base=目減りした資産と数量、source_location=その保管場所、executed_at=棚卸し日)で計上する。fee 行は時価で譲渡+同額を必要経費として計算されるので、正味の損失は「平均取得単価×数量」になる。
 
 ---
 
@@ -163,18 +174,19 @@ executed_at,tx_type,base_symbol,base_qty,quote_symbol,quote_qty,price_usd,usdjpy
 ## 8. tx_type別の完全な出力例
 
 ```csv
-executed_at,tx_type,base_symbol,base_qty,quote_symbol,quote_qty,price_usd,usdjpy,fee_symbol,fee_qty,venue,tx_hash,memo,location
-2026-03-10T21:00:00+09:00,buy,SOL,10,USDC,1450,,,USDC,1.2,KAST,,USDCでSOL購入,
-2026-04-02T15:30:00+09:00,sell,USDC,1600,SOL,10,,,USDC,1.6,KAST,,SOLをUSDCで売却,
-2026-05-28T09:30:00+09:00,swap,PAXG,0.5,BTC,0.015,,,BTC,0.0001,CowSwap,0xabc123,BTC→PAXG入替,
-2026-06-01T10:00:00+09:00,buy,BTC,0.1,JPY,1400000,,,,,bitFlyer,,円建て購入(quote_qtyがそのまま円換算額),BASISでステーキング中
-2026-08-01T12:00:00+09:00,reward,BASIS,12.34,,,,,,,BASIS,,DRR日次報酬(日付のみ→正午JST付与)。※BASISは未登録銘柄,
-2026-07-15T18:05:00+09:00,fee,ETH,0.002,,,,,,,,0xdef456,単独ガス代,
-2026-02-20T08:00:00+09:00,transfer_in,BTC,0.05,,,,,,,Ledger,,取引所→自己ウォレット移動,
-2026-02-21T09:00:00+09:00,transfer_out,ETH,1.5,,,,,ETH,0.001,Metamask,,送金(送金手数料あり),
+executed_at,tx_type,base_symbol,base_qty,quote_symbol,quote_qty,price_usd,usdjpy,fee_symbol,fee_qty,venue,tx_hash,memo,location,source_location
+2026-03-10T21:00:00+09:00,buy,SOL,10,USDC,1450,,,USDC,1.2,KAST,,USDCでSOL購入,,
+2026-04-02T15:30:00+09:00,sell,USDC,1600,SOL,10,,,USDC,1.6,KAST,,SOLをUSDCで売却,,
+2026-05-28T09:30:00+09:00,swap,PAXG,0.5,BTC,0.015,,,BTC,0.0001,CowSwap,0xabc123,BTC→PAXG入替(Ledger内で交換),Ledgerで保管,Ledgerで保管
+2026-06-01T10:00:00+09:00,buy,BTC,0.1,JPY,1400000,,,,,bitFlyer,,円建て購入(quote_qtyがそのまま円換算額),BASISでステーキング中,
+2026-08-01T12:00:00+09:00,reward,BASIS,12.34,,,,,,,BASIS,,DRR日次報酬(日付のみ→正午JST付与)。※BASISは未登録銘柄,,
+2026-07-15T18:05:00+09:00,fee,ETH,0.002,,,,,,,,0xdef456,単独ガス代,,Metamask保管
+2026-02-20T08:00:00+09:00,transfer_in,BTC,0.05,,,,,,,Ledger,,取引所→自己ウォレット移動(取引所側はタグなし),Ledgerで保管,
+2026-02-21T09:00:00+09:00,transfer_out,ETH,1.5,,,,,ETH,0.001,Metamask,,送金(送金手数料は移動元から),Ledgerで保管,Metamask保管
+2026-12-31T12:00:00+09:00,fee,PAXG,0.005,,,,,,,,,年末棚卸し: 手数料による目減りを計上,,Ledgerで保管
 ```
 
-(location列は任意なので、不要なら14列目自体を省略して13列のままでも構いません。)
+(location・source_location列は任意なので、不要なら14・15列目を省略しても構いません。)
 
 ---
 
@@ -193,8 +205,8 @@ executed_at,tx_type,base_symbol,base_qty,quote_symbol,quote_qty,price_usd,usdjpy
 
 ## 10. 出力前セルフチェックリスト(AIは出力直前にこれを内部で検証すること)
 
-- [ ] 1行目が指定の13列ヘッダと完全一致している
-- [ ] 全行が13個のフィールド(カンマ12個)を持つ
+- [ ] 1行目が指定のヘッダ(必須13列、または location/source_location を含む14・15列)と完全一致している
+- [ ] 全行がヘッダと同じ個数のフィールドを持つ
 - [ ] すべての `executed_at` にタイムゾーンオフセットが付いている
 - [ ] 日付のみの元データには `T12:00:00+09:00` を付与した
 - [ ] すべての行で「base=受け取った資産 / quote=支払った資産」になっている(fee行を除く)

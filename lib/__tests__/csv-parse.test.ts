@@ -99,4 +99,25 @@ describe("parseCanonicalCsv", () => {
     expect(result.rows[0].parseError).toBeUndefined();
     expect(result.rows[0].data?.location).toBeUndefined();
   });
+
+  it("15列目のsource_location(支払元)を読み込み、値を保持する", () => {
+    const csv = [
+      `${HEADER_WITH_LOCATION},source_location`,
+      "2026-10-13T12:00:00+09:00,swap,SOL,15.22833,PAXG,0.3908,,,,,,,,Solanaバリデータで運用中,Ledgerで保管",
+    ].join("\n");
+    const result = parseCanonicalCsv(csv);
+    expect(result.headerError).toBeUndefined();
+    expect(result.rows[0].parseError).toBeUndefined();
+    expect(result.rows[0].data?.location).toBe("Solanaバリデータで運用中");
+    expect(result.rows[0].data?.sourceLocation).toBe("Ledgerで保管");
+  });
+
+  it("手数料の無いrewardにsource_locationを指定するとエラーになる(手放した資産が無い)", () => {
+    const csv = [
+      `${HEADER_WITH_LOCATION},source_location`,
+      "2026-10-09T00:16:40Z,reward,SOL,2.14496809,,,,,,,,,BASISのClaim,Solanaバリデータで運用中,BASISでステーキング中",
+    ].join("\n");
+    const result = parseCanonicalCsv(csv);
+    expect(result.rows[0].parseError).toContain("支払元の保管場所は指定できません");
+  });
 });

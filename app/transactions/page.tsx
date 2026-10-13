@@ -3,6 +3,7 @@ import { and, desc, eq, gte, isNotNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { transactions, TX_TYPES } from "@/lib/db/schema";
 import { listAssets } from "@/lib/db/assets";
+import { listLocationTags } from "@/lib/db/transactions";
 import { formatJst, jstYear, jstYearRange } from "@/lib/datetime";
 import { formatJpy } from "@/lib/format";
 import { TX_TYPE_LABELS } from "@/lib/validation/transaction";
@@ -58,7 +59,7 @@ export default async function TransactionsPage({
     conditions.push(eq(transactions.location, params.location));
   }
 
-  const [rows, yearRows, venueRows, locationRows] = await Promise.all([
+  const [rows, yearRows, venueRows, locationRows, locationTags] = await Promise.all([
     db.query.transactions.findMany({
       where: conditions.length > 0 ? and(...conditions) : undefined,
       with: { baseAsset: true, quoteAsset: true, feeAsset: true },
@@ -74,6 +75,7 @@ export default async function TransactionsPage({
       .orderBy(sql`1 desc`),
     db.selectDistinct({ venue: transactions.venue }).from(transactions).where(isNotNull(transactions.venue)),
     db.selectDistinct({ location: transactions.location }).from(transactions).where(isNotNull(transactions.location)),
+    listLocationTags(),
   ]);
 
   const currentYear = jstYear(new Date());
@@ -171,6 +173,7 @@ export default async function TransactionsPage({
             location: params.location,
           }}
           matchCount={rows.length}
+          locationTags={locationTags}
         />
       )}
 
@@ -185,6 +188,7 @@ export default async function TransactionsPage({
               <th className="px-3 py-2 text-right">円換算額</th>
               <th className="px-3 py-2">price_source</th>
               <th className="px-3 py-2">venue</th>
+              <th className="px-3 py-2">支払元</th>
               <th className="px-3 py-2">保管場所</th>
               <th className="px-3 py-2"></th>
             </tr>
@@ -205,6 +209,7 @@ export default async function TransactionsPage({
                 </td>
                 <td className="px-3 py-2 text-xs text-gray-500">{tx.priceSource ?? "-"}</td>
                 <td className="px-3 py-2">{tx.venue ?? "-"}</td>
+                <td className="px-3 py-2">{tx.sourceLocation ?? "-"}</td>
                 <td className="px-3 py-2">{tx.location ?? "-"}</td>
                 <td className="whitespace-nowrap px-3 py-2 text-right">
                   <Link href={`/transactions/${tx.id}/edit`} className="mr-3 text-xs text-blue-700 hover:underline">
@@ -216,7 +221,7 @@ export default async function TransactionsPage({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-3 py-6 text-center text-gray-400">
+                <td colSpan={10} className="px-3 py-6 text-center text-gray-400">
                   該当する取引がありません
                 </td>
               </tr>

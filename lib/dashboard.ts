@@ -1,6 +1,6 @@
-import { desc, eq, isNotNull } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, dailyPrices, fxRates, transactions } from "@/lib/db/schema";
+import { assets, dailyPrices, fxRates } from "@/lib/db/schema";
 import { Decimal, roundJpy } from "@/lib/decimal";
 import { diffUtcDays, toUtcDateString } from "@/lib/datetime";
 import { computeHoldings, computeLocationBreakdown, type LocationBreakdownRow } from "@/lib/holdings";
@@ -89,11 +89,10 @@ export async function getHoldingsSummary(): Promise<HoldingsSummary> {
   return { holdings, totalValueUsd, totalValueJpy: roundJpy(totalValueJpy), latestUsdjpy };
 }
 
-/** §5.5拡張: 保管場所タグの内訳(取得ベース・参考値)。 */
+/** §5.5拡張: 保管場所の内訳。「タグなし」を保有数量との差で出すため、全取引を渡す。 */
 export async function getLocationBreakdown(): Promise<LocationBreakdownRow[]> {
   const rows = await db.query.transactions.findMany({
-    where: isNotNull(transactions.location),
-    with: { baseAsset: true },
+    with: { baseAsset: true, quoteAsset: true, feeAsset: true },
   });
 
   return computeLocationBreakdown(
@@ -101,7 +100,12 @@ export async function getLocationBreakdown(): Promise<LocationBreakdownRow[]> {
       txType: r.txType as never,
       baseSymbol: r.baseAsset.symbol,
       baseQty: r.baseQty,
+      quoteSymbol: r.quoteAsset?.symbol,
+      quoteQty: r.quoteQty,
+      feeSymbol: r.feeAsset?.symbol,
+      feeQty: r.feeQty,
       location: r.location,
+      sourceLocation: r.sourceLocation,
     }))
   );
 }

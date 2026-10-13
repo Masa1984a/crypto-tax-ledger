@@ -111,9 +111,12 @@ export const transactions = pgTable(
     venue: text("venue"),
     txHash: text("tx_hash"),
     memo: text("memo"),
-    // 資産の現在の保管場所(ステーキング先・ウォレット等)。venue(取引の実行場所・不変)とは別概念で、
-    // 資産の移動に応じて自由に編集される可変タグ。税計算には影響しない。row_hashにも含めない。
+    // 受け取った資産(transferでは移動先)の保管場所(ステーキング先・ウォレット等)。venue(取引の
+    // 実行場所・不変)とは別概念のタグ。税計算には影響しない。row_hashにも含めない。
     location: text("location"),
+    // 手放した資産(quote・fee・単独手数料・transferで移動する資産)が出た保管場所。保管場所の内訳で
+    // location に足した数量からここを差し引く。location と同じく税計算・row_hashには影響しない。
+    sourceLocation: text("source_location"),
     importBatchId: bigint("import_batch_id", { mode: "number" }).references(
       () => importBatches.id
     ),

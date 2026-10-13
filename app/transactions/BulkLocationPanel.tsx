@@ -5,7 +5,15 @@ import { useRouter } from "next/navigation";
 import { bulkSetLocation, type LocationBulkFilter } from "./actions";
 
 /** 現在の絞り込み条件に一致する取引へ、まとめて保管場所を設定するパネル。 */
-export function BulkLocationPanel({ filter, matchCount }: { filter: LocationBulkFilter; matchCount: number }) {
+export function BulkLocationPanel({
+  filter,
+  matchCount,
+  locationTags,
+}: {
+  filter: LocationBulkFilter;
+  matchCount: number;
+  locationTags: string[];
+}) {
   const router = useRouter();
   const [location, setLocation] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -17,9 +25,15 @@ export function BulkLocationPanel({ filter, matchCount }: { filter: LocationBulk
       <input
         value={location}
         onChange={(e) => setLocation(e.target.value)}
+        list="bulk-location-tags"
         placeholder="例: BASISでステーキング中"
         className="min-w-48 rounded border border-gray-300 px-2 py-1"
       />
+      <datalist id="bulk-location-tags">
+        {locationTags.map((tag) => (
+          <option key={tag} value={tag} />
+        ))}
+      </datalist>
       <button
         type="button"
         disabled={isPending || !location.trim()}

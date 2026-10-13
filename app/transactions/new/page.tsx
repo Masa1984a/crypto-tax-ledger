@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { listAssets } from "@/lib/db/assets";
+import { listLocationTags } from "@/lib/db/transactions";
 import { TransactionForm } from "../TransactionForm";
 
 // DBを直接読むため常に動的レンダリングにする(Full Route Cache対策。app/page.tsx参照)。
 export const dynamic = "force-dynamic";
 
 export default async function NewTransactionPage() {
-  const assets = await listAssets();
+  const [assets, locationTags] = await Promise.all([listAssets(), listLocationTags()]);
 
   return (
     <div className="mx-auto max-w-3xl p-6">
@@ -16,7 +17,7 @@ export default async function NewTransactionPage() {
           一覧に戻る
         </Link>
       </div>
-      <TransactionForm mode="create" assets={assets} />
+      <TransactionForm mode="create" assets={assets} locationTags={locationTags} />
     </div>
   );
 }
