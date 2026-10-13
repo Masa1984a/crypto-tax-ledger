@@ -41,6 +41,11 @@ export function addUtcDays(dateStr: string, days: number): string {
 }
 
 /** JST暦年(§2-4)の範囲を [start, end) のUTC瞬間として返す(年フィルタ用)。 */
+/** JSTの暦日 dateStr(YYYY-MM-DD)の終わり = 翌日0:00 JST(排他的上限として使う)。 */
+export function jstDayEndExclusive(dateStr: string): Date {
+  return fromZonedTime(`${addUtcDays(dateStr, 1)}T00:00:00`, JST);
+}
+
 export function jstYearRange(year: number): { start: Date; end: Date } {
   return {
     start: fromZonedTime(`${year}-01-01T00:00:00`, JST),

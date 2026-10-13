@@ -1,6 +1,6 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, lt } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, dailyPrices, fxRates } from "@/lib/db/schema";
+import { assets, dailyPrices, fxRates, transactions } from "@/lib/db/schema";
 import { Decimal, roundJpy } from "@/lib/decimal";
 import { diffUtcDays, toUtcDateString } from "@/lib/datetime";
 import { computeHoldings, computeLocationBreakdown, type LocationBreakdownRow } from "@/lib/holdings";
@@ -89,9 +89,13 @@ export async function getHoldingsSummary(): Promise<HoldingsSummary> {
   return { holdings, totalValueUsd, totalValueJpy: roundJpy(totalValueJpy), latestUsdjpy };
 }
 
-/** §5.5拡張: 保管場所の内訳。「タグなし」を保有数量との差で出すため、全取引を渡す。 */
-export async function getLocationBreakdown(): Promise<LocationBreakdownRow[]> {
+/**
+ * §5.5拡張: 保管場所の内訳。「タグなし」を保有数量との差で出すため、全取引を渡す。
+ * asOf を指定するとその時点より前の取引だけで集計する(棚卸し日時点の台帳)。
+ */
+export async function getLocationBreakdown(asOf?: Date): Promise<LocationBreakdownRow[]> {
   const rows = await db.query.transactions.findMany({
+    where: asOf ? lt(transactions.executedAt, asOf) : undefined,
     with: { baseAsset: true, quoteAsset: true, feeAsset: true },
   });
 

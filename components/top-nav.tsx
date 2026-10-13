@@ -5,6 +5,7 @@ const LINKS = [
   { href: "/transactions", label: "取引一覧" },
   { href: "/import", label: "CSV取込" },
   { href: "/assets", label: "資産マスタ" },
+  { href: "/inventory", label: "棚卸し" },
 ] as const;
 
 export function TopNav() {
